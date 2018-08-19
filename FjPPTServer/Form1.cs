@@ -47,7 +47,7 @@ namespace FjPPTServer
         private void Logs(object message) {
 
             logText.Text = logText.Text + message+"\n";
-            //
+            
         }
         void UdpServer_MessageArrived(string Message) {
 
