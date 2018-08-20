@@ -1,83 +1,172 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using OFFICECORE = Microsoft.Office.Core;
-using POWERPOINT = Microsoft.Office.Interop.PowerPoint;
-using System.Windows;
-using System.Collections;
-namespace PPTDraw.PPTOperate
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Windows.Forms;
+// 添加PowerPoint引用
+using PPt = Microsoft.Office.Interop.PowerPoint;
+
+namespace FjPPTServer
 {
-    /// <summary>
-    /// PPT文档操作实现类.
-    /// </summary>
-    public class OperatePPT
+    // 自动遥控幻灯片
+    // 这里需要注意的是，在普通视图和阅读模式中实现切换幻灯片的操作不一样
+    // 参考信息有：http://msdn.microsoft.com/en-us/library/bb251394(v=office.12).aspx
+    //http://support.microsoft.com/kb/316126 
+    // http://www.codeproject.com/Questions/73414/Getting-Running-Instance-of-Powerpoint-in-C
+    public partial class PPTControl 
     {
-        #region=========基本的参数信息=======
-        POWERPOINT.ApplicationClass objApp = null;
-        POWERPOINT.Presentation objPresSet = null;
-        POWERPOINT.SlideShowWindows objSSWs;
-        POWERPOINT.SlideShowTransition objSST;
-        POWERPOINT.SlideShowSettings objSSS;
-        POWERPOINT.SlideRange objSldRng;
-        bool bAssistantOn;
-        double pixperPoint = 0;
-        double offsetx = 0;
-        double offsety = 0;
-        #endregion
-        #region===========操作方法==============
-        /// <summary>
-        /// 打开PPT文档并播放显示。
-        /// </summary>
-        /// <param name="filePath">PPT文件路径</param>
-        public void PPTOpen(string filePath)
+        // 定义PowerPoint应用程序对象
+        PPt.Application pptApplication;
+        // 定义演示文稿对象
+        PPt.Presentation presentation;
+        // 定义幻灯片集合对象
+        PPt.Slides slides;
+        // 定义单个幻灯片对象
+        PPt.Slide slide;
+
+        // 幻灯片的数量
+        int slidescount;
+        // 幻灯片的索引
+        int slideIndex;
+        public bool is_open = false;
+        public void OpenPPT(string pptPath)
         {
-            //防止连续打开多个PPT程序.
-            if (this.objApp != null) { return; }
+            // 必须先运行幻灯片，下面才能获得PowerPoint应用程序，否则会出现异常
+            // 获得正在运行的PowerPoint应用程序
             try
             {
-                objApp = new POWERPOINT.ApplicationClass();
-                //以非只读方式打开,方便操作结束后保存.
-                objPresSet = objApp.Presentations.Open(filePath, OFFICECORE.MsoTriState.msoFalse, OFFICECORE.MsoTriState.msoFalse, OFFICECORE.MsoTriState.msoFalse);
-                //Prevent Office Assistant from displaying alert messages:
-                bAssistantOn = objApp.Assistant.On;
-                objApp.Assistant.On = false;
-                objSSS = this.objPresSet.SlideShowSettings;
-                objSSS.Run();
+                pptApplication = Marshal.GetActiveObject("PowerPoint.Application") as PPt.Application;
+
             }
-            catch (Exception ex)
+            catch
             {
-                this.objApp.Quit();
+                MessageBox.Show("启动幻灯片失败", "Error", MessageBoxButtons.OKCancel);
+            }
+            if (pptApplication != null)
+            {
+
+               
+                try
+                {
+
+                    // 在普通视图下这种方式可以获得当前选中的幻灯片对象
+                    // 然而在阅读模式下，这种方式会出现异常
+                    // 获得当前选中的幻灯片
+                    is_open = true;
+                    Thread.Sleep(1000);
+                    //获得演示文稿对象
+                    presentation = pptApplication.ActivePresentation;
+                    // 获得幻灯片对象集合
+                    slides = presentation.Slides;
+                    // 获得幻灯片的数量
+                    slidescount = slides.Count;
+                    slide = slides[pptApplication.ActiveWindow.Selection.SlideRange.SlideNumber];
+                   
+                }
+                catch
+                {
+                    slide = slide ?? pptApplication.SlideShowWindows[1].View.Slide;
+                }
             }
         }
-      
-        /// <summary>
-        /// PPT下一页。
-        /// </summary>
-        public void NextSlide()
+
+        // 第一页事件
+        public void fristAction()
         {
-            if (this.objApp != null)
-                this.objPresSet.SlideShowWindow.View.Next();
+            if (!is_open) {
+
+                return;
+            }    
+            try
+            {
+                // 在普通视图中调用Select方法来选中第一张幻灯片
+                slides[1].Select();         
+                slide = slides[1];
+            }
+            catch
+            {
+                // 在阅读模式下使用下面的方式来切换到第一张幻灯片
+                pptApplication.SlideShowWindows[1].View.First();
+                slide = pptApplication.SlideShowWindows[1].View.Slide;
+            }
         }
-        /// <summary>
-        /// PPT上一页。
-        /// </summary>
-        public void PreviousSlide()
+
+        // 最后一页
+        public void LastAction()
         {
-            if (this.objApp != null)
-                this.objPresSet.SlideShowWindow.View.Previous();
+            if (!is_open)
+            {
+                return;
+            }
+            try
+            {
+                slides[slidescount].Select();
+                slide = slides[slidescount];
+            }
+            catch
+            {
+                // 在阅读模式下使用下面的方式来切换到最后幻灯片
+                pptApplication.SlideShowWindows[1].View.Last();
+                slide = pptApplication.SlideShowWindows[1].View.Slide;
+            }
         }
-      
-        /// <summary>
-        /// 关闭PPT文档。
-        /// </summary>
-        public void PPTClose()
+
+        // 切换到下一页幻灯片
+        public void NextAction()
         {
-            //装备PPT程序。
-            if (this.objApp != null)
-                this.objApp.Quit();
-            GC.Collect();
+            if (!is_open)
+            {
+                return;
+            }
+            slideIndex = slide.SlideIndex + 1;      
+            if (slideIndex > slidescount)
+            {
+                Debug.WriteLine("已经是最后一页了");
+                fristAction();
+            }
+            else
+            {
+                try
+                {
+                    slide = slides[slideIndex];
+                    slides[slideIndex].Select();
+                }
+                catch
+                {
+                    // 在阅读模式下使用下面的方式来切换到下一张幻灯片
+                    pptApplication.SlideShowWindows[1].View.Next();
+                    slide = pptApplication.SlideShowWindows[1].View.Slide;
+                }
+            }
         }
-        #endregion
+
+        // 切换到上一页幻灯片
+        public void UpAction()
+        {
+            if (!is_open)
+            {
+
+                return;
+            }
+            slideIndex = slide.SlideIndex - 1;   
+            if (slideIndex >= 1)
+            {
+                try
+                {
+                    slide = slides[slideIndex];
+                    slides[slideIndex].Select();
+                }
+                catch
+                {
+                    // 在阅读模式下使用下面的方式来切换到上一张幻灯片
+                    pptApplication.SlideShowWindows[1].View.Previous();
+                    slide = pptApplication.SlideShowWindows[1].View.Slide;
+                }
+            }
+            else
+            {
+                Debug.WriteLine("已经是第一页了");
+            }
+        }
     }
 }
