@@ -184,27 +184,27 @@ namespace FjPPTServer
         private void FristAction() {
 
             ppt.fristAction();
-            info = ppt.is_open ? "跳转到第一页" : "PPT未打开";
+            info = ppt.is_open ? "跳转到第一页" : "PPT未打开或者启动失败";
             WriteLogs(info);
         }
         private void NextAction()
         {
             ppt.NextAction();
-            info = ppt.is_open ? "跳转到下一页" : "PPT未打开";
+            info = ppt.is_open ? "跳转到下一页" : "PPT未打开或者启动失败";
             WriteLogs(info);
         }
         private void UpAction()
         {
 
             ppt.UpAction();
-            info = ppt.is_open ? "跳转到上一页" : "PPT未打开";
+            info = ppt.is_open ? "跳转到上一页" : "PPT未打开或者启动失败";
             WriteLogs(info);
         }
         private void LastAction()
         {
 
             ppt.LastAction();
-            info = ppt.is_open ? "跳转到最后一页" : "PPT未打开";
+            info = ppt.is_open ? "跳转到最后一页" : "PPT未打开或者启动失败";
             WriteLogs(info);
         }
         private void button2_Click(object sender, EventArgs e)
@@ -244,7 +244,7 @@ namespace FjPPTServer
             Process[] process = Process.GetProcesses();
             foreach (Process prc in process)
             {
-                if (prc.ProcessName == "wpp")
+                if (prc.ProcessName == "wpp"|| prc.ProcessName == "POWERPNT")
                     prc.Kill();
             }
 

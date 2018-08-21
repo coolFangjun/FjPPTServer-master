@@ -1,9 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
-<data>
-  <window>
-    <!-- 端口号 -->
-    <port>8888</port>
-    <!-- wps或者微软的ppt办公软件安装地址 -->
-    <pptPath>C:\Users\Administrator\AppData\Local\Kingsoft\WPS Office\10.1.0.7400\office6\wpp.exe</pptPath>
-  </window>
-</data>
