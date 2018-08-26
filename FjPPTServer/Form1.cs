@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -26,6 +27,18 @@ namespace FjPPTServer
         PPTControl ppt = new PPTControl();
         SynchronizationContext m_SyncContext = null;
         string info = "";
+        [DllImport("user32.dll ")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        //根据任务栏应用程序显示的名称找相应窗口的句柄
+        [DllImport("User32.dll", EntryPoint = "FindWindow")]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll")]
+        public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+        private const int SW_RESTORE = 9;
         private void Form1_Load(object sender, EventArgs e)
         {
             m_SyncContext = SynchronizationContext.Current;
@@ -33,7 +46,7 @@ namespace FjPPTServer
             openFileDialog1.FileName = "";
             openFileDialog1.InitialDirectory = path+"ppt";   //@是取消转义字符的意思
             openFileDialog1.Filter = "ppt文件|*.ppt;*.pptx;*.pps";
-            GetPPTList();
+            //GetPPTList();
             myThread = new Thread(StartDUP);
             myThread.Start();
 
@@ -69,8 +82,10 @@ namespace FjPPTServer
                 if (control == "getPPTState")
                 {
                     //获取PPT列表
+                    string type = dic["type"];
+                    string str = type == "0" ? path + "ppt/乡镇规划/" : path + "ppt/136规划/";
                     sendDic.Add("control", "setPPTState");
-                    sendDic.Add("allInfo", GetPPTList());
+                    sendDic.Add("allInfo", GetPPTList(str));
                     info = "执行获取列表";
                     WriteLogs(info);
                 }
@@ -78,14 +93,16 @@ namespace FjPPTServer
                 {
                     //执行播放指令
                     string name = dic["name"];
+                    string type = dic["type"];
+                    string str = type == "0" ? path + "ppt/乡镇规划/" : path + "ppt/136规划/";
                     info = "收到播放"+name+"指令";
-                    OpenPPT(path+"ppt/"+ name);
+                    OpenPPT(str+name);
                     return;
                 }
-                if (control == "firstPage")
+                if (control == "fullScreen")
                 {
-                    //执行第一页指令
-                    FristAction();
+                    //执行全屏
+                    ScreenAction();
                     return;
                 }
                 if (control == "upPage")
@@ -100,7 +117,15 @@ namespace FjPPTServer
                     NextAction();
                     return;
                 }
-               
+                if (control == "close") {
+                    ClosePPT();
+                    return;
+                }
+                if (control == "esc")
+                {
+                    EscPPT();
+                    return;
+                }
 
                 if (sendDic.Count != 0)
                 {
@@ -125,16 +150,37 @@ namespace FjPPTServer
             }
             catch
             {
-                WriteLogs("指令错误！！！！");
+                WriteLogs("请先执行打开PPT！！");
             }
 
         }
 
+        private void ActiveAction() {
 
-        private List<string> GetPPTList() {
+            string pName = "POWERPNT";//要启动的进程名称，可以在任务管理器里查看，一般是不带.exe后缀的;
+            Process[] temp = Process.GetProcessesByName(pName);//在所有已启动的进程中查找需要的进程；
+            if (temp.Length >0)//如果查找到
+            {
+                for (int i = 0; i < temp.Length; i++)
+                {
+
+                    IntPtr handle = temp[i].MainWindowHandle;
+                    SwitchToThisWindow(handle, true);    // 激活，显示在最前
+                }
+            }
+            else
+            {
+                Process.Start(pName + ".exe");//否则启动进程
+            }
+
+
+        }
+
+
+        private List<string> GetPPTList(string str = "") {
 
             List<string> list = new List<string>();
-            GetLists(path+"ppt/",list);
+            GetLists(str.Length==0? path + "ppt/乡镇规划/":str, list);
             return list;
 
         }
@@ -156,6 +202,7 @@ namespace FjPPTServer
                     string aLastName = str.Substring(str.LastIndexOf(".") + 1, (str.Length - str.LastIndexOf(".") - 1)); //扩展名
                     if (aLastName == "ppt"|| aLastName=="pptx"|| aLastName == "pps") {
                         pptList.Add(str);
+                        //|| fsinfo.Attributes != FileAttributes.Hidden
                     }
                     
                 }
@@ -176,55 +223,40 @@ namespace FjPPTServer
         {
             pr.StartInfo.FileName = pptPath;
             pr.Start();
-            Thread.Sleep(2000);
-            ppt.OpenPPT(pptPath);
+            ScreenAction();
             WriteLogs("打开PPT" +"'"+ System.IO.Path.GetFileNameWithoutExtension(pptPath) +"'");
 
         }
-        private void FristAction() {
 
-            ppt.fristAction();
-            info = ppt.is_open ? "跳转到第一页" : "PPT未打开或者启动失败";
+        private void ScreenAction()
+        {
+            ActiveAction();
+            Thread.Sleep(2000);
+            SendKeys.SendWait("{F5}");
+            info = "全屏播放";
             WriteLogs(info);
         }
         private void NextAction()
         {
-            ppt.NextAction();
-            info = ppt.is_open ? "跳转到下一页" : "PPT未打开或者启动失败";
+            //ppt.NextAction();
+            SendKeys.SendWait("{PGDN}");
+            info = "跳转到下一页";
             WriteLogs(info);
         }
         private void UpAction()
         {
 
-            ppt.UpAction();
-            info = ppt.is_open ? "跳转到上一页" : "PPT未打开或者启动失败";
+            //ppt.UpAction();
+            SendKeys.SendWait("{PGUP}");
+            info = "跳转到上一页";
             WriteLogs(info);
         }
-        private void LastAction()
+        private void EscPPT()
         {
-
-            ppt.LastAction();
-            info = ppt.is_open ? "跳转到最后一页" : "PPT未打开或者启动失败";
+            //ppt.LastAction();
+            SendKeys.SendWait("{ESC}");
+            info ="退出全屏";
             WriteLogs(info);
-        }
-        private void button2_Click(object sender, EventArgs e)
-        {
-            FristAction();
-        }
-
-        private void button3_Click(object sender, EventArgs e)
-        {
-            UpAction();
-        }
-
-        private void button4_Click(object sender, EventArgs e)
-        {
-            NextAction();
-        }
-
-        private void button5_Click(object sender, EventArgs e)
-        {
-            LastAction();
         }
 
         private void button6_Click(object sender, EventArgs e)
@@ -235,12 +267,12 @@ namespace FjPPTServer
         private void button7_Click(object sender, EventArgs e)
         {
 
-            ClosePPT(richTextBox1.Text);
-
-
+            ClosePPT();
         }
-        private void ClosePPT(string path = "") {
-
+        
+        private void ClosePPT() {
+            info = "关闭PPT";
+            WriteLogs(info);
             Process[] process = Process.GetProcesses();
             foreach (Process prc in process)
             {
@@ -249,6 +281,11 @@ namespace FjPPTServer
             }
 
 
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            ScreenAction();
         }
     }
 }

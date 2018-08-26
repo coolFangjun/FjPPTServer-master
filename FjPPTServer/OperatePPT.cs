@@ -53,7 +53,7 @@ namespace FjPPTServer
                     // 然而在阅读模式下，这种方式会出现异常
                     // 获得当前选中的幻灯片
                     is_open = true;
-                    Thread.Sleep(1000);
+                    Thread.Sleep(2000);
                     //获得演示文稿对象
                     presentation = pptApplication.ActivePresentation;
                     // 获得幻灯片对象集合
@@ -65,7 +65,7 @@ namespace FjPPTServer
                 }
                 catch
                 {
-                    slide = slide ?? pptApplication.SlideShowWindows[1].View.Slide;
+                    slide = pptApplication.SlideShowWindows[1].View.Slide;
                 }
             }
         }
