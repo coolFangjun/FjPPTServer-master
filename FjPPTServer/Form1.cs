@@ -83,7 +83,7 @@ namespace FjPPTServer
                 {
                     //获取PPT列表
                     string type = dic["type"];
-                    string str = type == "0" ? path + "ppt/乡镇规划/" : path + "ppt/136规划/";
+                    string str = type == "0" ? path + "ppt/乡镇规划/" : path + "ppt/招商引资/";
                     sendDic.Add("control", "setPPTState");
                     sendDic.Add("allInfo", GetPPTList(str));
                     info = "执行获取列表";
@@ -94,7 +94,7 @@ namespace FjPPTServer
                     //执行播放指令
                     string name = dic["name"];
                     string type = dic["type"];
-                    string str = type == "0" ? path + "ppt/乡镇规划/" : path + "ppt/136规划/";
+                    string str = type == "0" ? path + "ppt/乡镇规划/" : path + "ppt/招商引资/";
                     info = "收到播放"+name+"指令";
                     OpenPPT(str+name);
                     return;
